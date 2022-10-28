@@ -1,0 +1,188 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[ ]:
+
+
+import cv2
+import numpy as np
+import matplotlib.pylab as plt
+
+menu = cv2.imread('c:/img/blank_500.jpg')
+
+cv2.putText(menu, "IMG_MIX1: BUTTON_1", (75, 100), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 0))
+cv2.putText(menu, "IMG_MIX2: BUTTON_2", (75, 150), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 0))
+cv2.putText(menu, "IMG_MIX3: BUTTON_3", (75, 200), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 0))
+cv2.putText(menu, "IMG_SAME: BUTTON_4", (75, 250), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 0))
+cv2.putText(menu, "IMG_READ: BUTTON_5", (75, 300), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 0))
+cv2.putText(menu, "EXIT:      BUTTON_6", (75, 350), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 0))
+
+cv2.imshow('menu', menu)
+
+while True:
+    key = cv2.waitKey(0) & 0xFF
+    if key == ord('1'):
+        img1 = cv2.imread('c:/img/man_chromakey.jpg')
+        img2 = cv2.imread('c:/img/street.jpg')
+        cv2.imshow('street', img2)
+        height1, width1 = img1.shape[:2]
+        height2, width2 = img2.shape[:2]
+        x = (width2 - width1)//2
+        y = height2 - height1
+        w = x + width1
+        h = y + height1
+
+        chromakey = img1[:10, :10, :]
+        offset = 20
+
+        hsv_chroma = cv2.cvtColor(chromakey, cv2.COLOR_BGR2HSV)
+        hsv_img = cv2.cvtColor(img1, cv2.COLOR_BGR2HSV)
+
+        chroma_h = hsv_chroma[:, :, 0]
+        lower = np.array([chroma_h.min() - offset, 100, 100])
+        upper = np.array([chroma_h.max() + offset, 255, 255])
+
+        mask = cv2.inRange(hsv_img, lower, upper)
+        mask_inv = cv2.bitwise_not(mask)
+        roi = img2[y:h, x:w]
+        fg = cv2.bitwise_and(img1, img1, mask = mask_inv)
+        bg = cv2.bitwise_and(roi, roi, mask = mask)
+        img2[y:h, x:w] = fg + bg
+   
+        cv2.imshow('chromakey', img1)
+        cv2.imshow('added', img2)
+        cv2.imwrite('c:/img/result_image.jpg', img2)
+        cv2.waitKey()
+        cv2.destroyWindow("chromakey")
+        cv2.destroyWindow("street")
+        cv2.destroyWindow("added")
+    elif key == ord('2'):
+        img1 = cv2.imread('c:/img/drawing.jpg')
+        img2 = cv2.imread('c:/img/my_hand.jpg')
+        cv2.imshow('drawing', img1)
+        cv2.imshow('hand', img2)
+        
+        mask = np.full_like(img1, 255)
+        
+        height, width = img2.shape[:2]
+        center = (width//2, height//2)
+        
+        mixed = cv2.seamlessClone(img1, img2, mask, center, cv2.MIXED_CLONE)
+        
+        cv2.imshow('mixed', mixed)
+        cv2.imwrite('c:/img/result_image.jpg', mixed)
+        cv2.waitKey()
+        cv2.destroyWindow("mixed")
+        cv2.destroyWindow("drawing")
+        cv2.destroyWindow("hand")
+    elif key == ord('3'):
+        img_fg = cv2.imread('c:/img/opencv_logo.png', cv2.IMREAD_UNCHANGED)
+        img_bg = cv2.imread('c:/img/girl.jpg')
+        
+        cv2.imshow('logo', img_fg)
+        cv2.imshow('girl', img_bg)
+        
+        _, mask = cv2.threshold(img_fg[:,:,3], 1, 255, cv2.THRESH_BINARY)
+        mask_inv = cv2.bitwise_not(mask)
+        
+        img_fg = cv2.cvtColor(img_fg, cv2.COLOR_BGRA2BGR)
+        h, w = img_fg.shape[:2]
+        roi = img_bg[10:10+h, 10:10+w]
+        
+        masked_fg = cv2.bitwise_and(img_fg, img_fg, mask=mask)
+        masked_bg = cv2.bitwise_and(roi, roi, mask=mask_inv)
+        
+        added = masked_fg + masked_bg
+        img_bg[10:10+h, 10:10+w] = added
+        
+        cv2.imshow('result', img_bg)
+        cv2.imwrite('c:/img/result_image.jpg', img_bg)
+        cv2.waitKey()
+        cv2.destroyWindow("result")
+        cv2.destroyWindow("logo")
+        cv2.destroyWindow("girl")
+    elif key == ord('4'):
+        img1 = cv2.imread('C:/img/taekwonv1.jpg')
+        img2 = cv2.imread('C:/img/taekwonv2.jpg')
+        img3 = cv2.imread('C:/img/taekwonv3.jpg')
+        img4 = cv2.imread('C:/img/dr_ochanomizu.jpg')
+
+        cv2.imshow('query', img1)
+        imgs = [img1, img2, img3, img4]
+        hists = []
+        for i, img in enumerate(imgs):
+            plt.subplot(1, len(imgs), i+1)
+            plt.title('img%d' % (i+1))
+            plt.axis('off')
+            plt.imshow(img[:,:,::-1])
+
+            hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+            hist = cv2.calcHist([hsv], [0, 1], None, [180, 256], [0, 180, 0, 256])
+
+            cv2.normalize(hist, hist, 0, 1, cv2.NORM_MINMAX)
+            hists.append(hist)
+
+        query = hists[0]
+        methods = { 'CORREL' : cv2.HISTCMP_CORREL, 'CHISQR': cv2.HISTCMP_CHISQR,
+                    'INTERSECT' : cv2.HISTCMP_INTERSECT,
+                    'BHATTACHARYYA': cv2.HISTCMP_BHATTACHARYYA}
+        for j, (name, flag) in enumerate(methods.items()):
+            print('%-10s'%name, end='\t')
+            for i, (hist, img) in enumerate(zip(hists, imgs)):
+                ret = cv2.compareHist(query, hist, flag)
+                if flag == cv2.HISTCMP_INTERSECT:
+                    ret = ret/np.sum(query)
+                print("img%d:%7.2f"% (i + 1, ret), end='\t')
+            print()
+        plt.show()
+        cv2.waitKey()
+        cv2.destroyWindow('query')
+    elif key == ord('5'):
+        read_img = cv2.imread('c:/img/result_image.jpg')
+        img_file = 'c:/img/result_image.jpg'
+        cv2.imshow(img_file, read_img)
+        
+        colors = {'black':(0, 0, 0), 'red':(0, 0, 255), 'blue':(255, 0, 0), 'green':(0, 255, 0)}
+   
+        def onMouse(event, x, y, flags, param):
+            print(event, x, y, flags)
+            color = colors['black']
+            if event == cv2.EVENT_LBUTTONDOWN: 
+                if flags & cv2.EVENT_FLAG_CTRLKEY and flags & cv2.EVENT_FLAG_SHIFTKEY: 
+                    color = colors['red'] 
+                elif flags & cv2.EVENT_FLAG_CTRLKEY: 
+                    color = colors['blue'] 
+                elif flags & cv2.EVENT_FLAG_SHIFTKEY: 
+                    color = colors['green'] 
+                cv2.circle(read_img, (x, y), 30, color, -1) 
+            elif event == cv2.EVENT_MBUTTONDOWN: 
+                if flags & cv2.EVENT_FLAG_CTRLKEY and flags & cv2.EVENT_FLAG_SHIFTKEY:
+                    color = colors['red'] 
+                elif flags & cv2.EVENT_FLAG_CTRLKEY:
+                    color = colors['blue']
+                elif flags & cv2.EVENT_FLAG_SHIFTKEY:
+                    color = colors['green']        
+                cv2.rectangle(read_img, (x, y), (x+100, y+100), color, -1) 
+            elif event == cv2.EVENT_RBUTTONDOWN: 
+                if flags & cv2.EVENT_FLAG_CTRLKEY and flags & cv2.EVENT_FLAG_SHIFTKEY:
+                    color = colors['red']
+                elif flags & cv2.EVENT_FLAG_CTRLKEY:
+                    color = colors['blue']
+                elif flags & cv2.EVENT_FLAG_SHIFTKEY:
+                    color = colors['green']
+                cv2.line(read_img, (x, y), (x+100, y+100), color, 5) 
+            cv2.imshow(img_file, read_img)
+            
+        cv2.setMouseCallback(img_file, onMouse)
+        cv2.waitKey(0)
+        cv2.destroyWindow(img_file)
+    elif key == ord('6'):
+        cv2.destroyAllWindows()
+
+
+# In[ ]:
+
+
+
+
